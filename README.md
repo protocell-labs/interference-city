@@ -4,7 +4,7 @@
 
 This project is a design prototype built with **Three.js** and **custom GLSL shaders**, developed during the Junction Utopia & Dystopia 2025 hackathon in Espoo, Finland.
 
-🌐 **Live demo:** *(GitHub Pages link – placeholder)*
+🌐 [*Live demo*](https://protocell-labs.github.io/echogrid/)
 
 
 ## Features

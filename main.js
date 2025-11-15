@@ -15,7 +15,7 @@ let gridWireMaterial;
 let gridPointsMaterial;
 
 let currentMaterialMode = "gridTransparent"; // default material
-
+let autoRotateSpeed = 0.002; // radians per frame (slow)
 
 const F_MIN = 3000;
 const F_MAX = 3000000000;
@@ -466,9 +466,9 @@ let source3Auto = true;
 
 // Hard-coded velocities (you can tweak these)
 const cRadius = 1.5;
-const source1Velocity = new THREE.Vector3(randIntRange(-cRadius,cRadius), 0.3, randIntRange(-cRadius,cRadius));
-const source2Velocity = new THREE.Vector3(randIntRange(-cRadius,cRadius), 0.4, randIntRange(-cRadius,cRadius));
-const source3Velocity = new THREE.Vector3(randIntRange(-cRadius,cRadius), 0.4, randIntRange(-cRadius,cRadius));
+const source1Velocity = new THREE.Vector3(randIntRange(-cRadius, cRadius), 0.3, randIntRange(-cRadius, cRadius));
+const source2Velocity = new THREE.Vector3(randIntRange(-cRadius, cRadius), 0.4, randIntRange(-cRadius, cRadius));
+const source3Velocity = new THREE.Vector3(randIntRange(-cRadius, cRadius), 0.4, randIntRange(-cRadius, cRadius));
 
 function updateSource1FromSliders() {
   const sx = Number(source1XSlider.value);
@@ -752,7 +752,7 @@ function updateLabels() {
     source2Pos.x.toFixed(2) + ", " +
     source2Pos.y.toFixed(2) + ", " +
     source2Pos.z.toFixed(2) + ")";
-    "<br>Source 3 freq: " + freq3.toExponential(3) + " Hz (" + MHz3.toFixed(3) + " MHz)" +
+  "<br>Source 3 freq: " + freq3.toExponential(3) + " Hz (" + MHz3.toFixed(3) + " MHz)" +
     "<br>Source 3 pos: (" +
     source3Pos.x.toFixed(2) + ", " +
     source3Pos.y.toFixed(2) + ", " +
@@ -863,7 +863,7 @@ function animate() {
     source2ZSlider.value = mapWorldToSlider(source2Pos.z, boundsMin.z, boundsMax.z).toFixed(0);
   }
 
-    if (source3Auto) {
+  if (source3Auto) {
     updateAutoSource(dt, source3Pos, source3Velocity);
     source3Mesh.position.copy(source3Pos);
 
@@ -901,6 +901,18 @@ function animate() {
     material.uniforms.uK3.value = k3;
     material.uniforms.uOmega3.value = omega3;
   }
+
+  // ---- Slow camera rotation around world Y ----
+  // Save current radius and height
+  const radius = Math.sqrt(camera.position.x * camera.position.x + camera.position.z * camera.position.z);
+  const angle = Math.atan2(camera.position.z, camera.position.x) + autoRotateSpeed;
+
+  camera.position.x = radius * Math.cos(angle);
+  camera.position.z = radius * Math.sin(angle);
+
+  // Keep looking at the OrbitControls target
+  camera.lookAt(controls.target);
+
 
   controls.update();
   renderer.render(scene, camera);
