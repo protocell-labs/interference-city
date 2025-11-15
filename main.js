@@ -9,7 +9,14 @@ import { GLTFLoader } from "GLTFLoader";
 // -------------------------------
 const F_MIN = 3000;
 const F_MAX = 3000000000;
-const SOURCE_RANGE = 6;
+
+// Default bounds before GLB is loaded (a safe cube around origin)
+const DEFAULT_RANGE = 6;
+
+// Bounds within which we map sliders for field center & sources
+const boundsMin = new THREE.Vector3(-DEFAULT_RANGE, -DEFAULT_RANGE, -DEFAULT_RANGE);
+const boundsMax = new THREE.Vector3( DEFAULT_RANGE,  DEFAULT_RANGE,  DEFAULT_RANGE);
+const boundsCenter = new THREE.Vector3(0, 0, 0);
 
 // density 1–5 → points per unit
 function mapDensityToPPU(densityValue) {
@@ -33,9 +40,10 @@ function getVisualLambdaFromFrequency(f) {
   return 4.0 - 3.0 * clamped; // 4 → 1
 }
 
-function mapSliderToSource(v) {
-  const t = v / 100;
-  return t * SOURCE_RANGE;
+// Map slider [-100,100] to [min,max] on a given axis
+function mapSliderToBounds(v, min, max) {
+  const t = (v + 100) / 200; // -100→0, 0→0.5, 100→1
+  return min + (max - min) * t;
 }
 
 // -------------------------------
@@ -69,33 +77,9 @@ const ambient = new THREE.AmbientLight(0xffffff, 0.3);
 scene.add(ambient);
 
 // -------------------------------
-// Optional GLB (visual only)
-// -------------------------------
-if (GLTFLoader) {
-  const loader = new GLTFLoader();
-  loader.load(
-    "models/obstacle1.glb",
-    (gltf) => {
-      const root = gltf.scene;
-      root.position.set(0, 0, 0);
-      scene.add(root);
-      root.traverse((obj) => {
-        if (obj.isMesh) {
-          obj.castShadow = false;
-          obj.receiveShadow = false;
-        }
-      });
-      console.log("Loaded obstacle1.glb");
-    },
-    undefined,
-    (err) => console.warn("Failed to load obstacle1.glb", err)
-  );
-}
-
-// -------------------------------
 // Field volume (position + size)
 // -------------------------------
-const fieldCenter = new THREE.Vector3(0, 0, 0);
+const fieldCenter = new THREE.Vector3().copy(boundsCenter);
 const fieldSize   = new THREE.Vector3(8, 8, 8);
 
 let resX = 0, resY = 0, resZ = 0;
@@ -240,9 +224,9 @@ function updateSource1FromSliders() {
   const sz = Number(source1ZSlider.value);
 
   source1Pos.set(
-    mapSliderToSource(sx),
-    mapSliderToSource(sy),
-    mapSliderToSource(sz)
+    mapSliderToBounds(sx, boundsMin.x, boundsMax.x),
+    mapSliderToBounds(sy, boundsMin.y, boundsMax.y),
+    mapSliderToBounds(sz, boundsMin.z, boundsMax.z)
   );
   source1Mesh.position.copy(source1Pos);
 }
@@ -253,11 +237,51 @@ function updateSource2FromSliders() {
   const sz = Number(source2ZSlider.value);
 
   source2Pos.set(
-    mapSliderToSource(sx),
-    mapSliderToSource(sy),
-    mapSliderToSource(sz)
+    mapSliderToBounds(sx, boundsMin.x, boundsMax.x),
+    mapSliderToBounds(sy, boundsMin.y, boundsMax.y),
+    mapSliderToBounds(sz, boundsMin.z, boundsMax.z)
   );
   source2Mesh.position.copy(source2Pos);
+}
+
+// -------------------------------
+// Optional GLB (for bounds + visuals)
+// -------------------------------
+if (GLTFLoader) {
+  const loader = new GLTFLoader();
+  loader.load(
+    "models/obstacle1.glb",
+    (gltf) => {
+      const root = gltf.scene;
+      root.position.set(0, 0, 0);
+      scene.add(root);
+
+      root.traverse((obj) => {
+        if (obj.isMesh) {
+          obj.castShadow = false;
+          obj.receiveShadow = false;
+        }
+      });
+
+      // Compute bounding box
+      root.updateWorldMatrix(true, true);
+      const bbox = new THREE.Box3().setFromObject(root);
+      bbox.getCenter(boundsCenter);
+      boundsMin.copy(bbox.min);
+      boundsMax.copy(bbox.max);
+
+      console.log("GLB bounds:", boundsMin, boundsMax);
+
+      // Set field center to GLB center
+      fieldCenter.copy(boundsCenter);
+
+      // Rebuild point cloud with new center & bounds
+      buildPointCloud();
+      updateLabels();
+    },
+    undefined,
+    (err) => console.warn("Failed to load obstacle1.glb", err)
+  );
 }
 
 // -------------------------------
@@ -295,9 +319,9 @@ let freq2 = mapSliderToFrequency(freq2SliderVal);
 
 function updateFieldCenterFromSliders() {
   fieldCenter.set(
-    mapSliderToSource(Number(fieldPosXSlider.value)),
-    mapSliderToSource(Number(fieldPosYSlider.value)),
-    mapSliderToSource(Number(fieldPosZSlider.value))
+    mapSliderToBounds(Number(fieldPosXSlider.value), boundsMin.x, boundsMax.x),
+    mapSliderToBounds(Number(fieldPosYSlider.value), boundsMin.y, boundsMax.y),
+    mapSliderToBounds(Number(fieldPosZSlider.value), boundsMin.z, boundsMax.z)
   );
 }
 
@@ -371,7 +395,7 @@ source2XSlider.addEventListener("input", () => { updateSource2FromSliders(); upd
 source2YSlider.addEventListener("input", () => { updateSource2FromSliders(); updateLabels(); });
 source2ZSlider.addEventListener("input", () => { updateSource2FromSliders(); updateLabels(); });
 
-// Initial setup
+// Initial setup (before GLB bounds override)
 updateFieldCenterFromSliders();
 updateFieldSizeFromSliders();
 updateSource1FromSliders();
