@@ -23,6 +23,78 @@ let model = null;      // reference to the loaded model
 
 
 
+function createGridMaterial() {
+    return new THREE.ShaderMaterial({
+        uniforms: {
+            uLineColor: { value: new THREE.Color(0x00ff00) }, // neon green
+            uBgColor: { value: new THREE.Color(0x000000) }, // black
+            uScale: { value: 0.1 },   // grid density
+            uThickness: { value: 0.02 }   // line thickness
+        },
+        vertexShader: `
+            varying vec3 vWorldPos;
+            varying vec3 vWorldNormal;
+
+            void main() {
+                // world-space position
+                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                vWorldPos = worldPos.xyz;
+
+                // world-space normal (assumes uniform scaling)
+                vWorldNormal = normalize(mat3(modelMatrix) * normal);
+
+                gl_Position = projectionMatrix * viewMatrix * worldPos;
+            }
+        `,
+        fragmentShader: `
+            varying vec3 vWorldPos;
+            varying vec3 vWorldNormal;
+
+            uniform vec3 uLineColor;
+            uniform vec3 uBgColor;
+            uniform float uScale;
+            uniform float uThickness;
+
+            void main() {
+                // Use the dominant normal component to choose projection plane
+                vec3 n  = normalize(vWorldNormal);
+                vec3 an = abs(n);
+
+                vec2 coord;
+
+                if (an.y >= an.x && an.y >= an.z) {
+                    // Top/bottom faces -> project onto XZ
+                    coord = vWorldPos.xz;
+                } else if (an.x >= an.y && an.x >= an.z) {
+                    // Faces pointing +/-X -> project onto YZ
+                    coord = vWorldPos.zy; // (z, y)
+                } else {
+                    // Faces pointing +/-Z -> project onto XY
+                    coord = vWorldPos.xy;
+                }
+
+                // Scale controls cell size
+                coord *= uScale;
+
+                // Make repeating 0..1 pattern
+                vec2 grid = abs(fract(coord) - 0.5);
+
+                // Distance to nearest line in either direction
+                float distToLine = min(grid.x, grid.y);
+
+                // Line mask
+                float mask = step(distToLine, uThickness);
+
+                vec3 color = mix(uBgColor, uLineColor, mask);
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `
+    });
+}
+
+
+
+
 
 
 
@@ -49,15 +121,10 @@ function init() {
     renderer.outputEncoding = THREE.sRGBEncoding;
     document.body.appendChild(renderer.domElement);
 
-    // Lights
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-    hemiLight.position.set(0, 20, 0);
-    scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(5, 10, 7.5);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
+    // Uniform lighting: simple ambient light, no shadows
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+    scene.add(ambientLight);
 
     // OrbitControls
     controls = new OrbitControls(camera, renderer.domElement);
@@ -78,17 +145,23 @@ function init() {
 
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.2,   // strength
-        0.4,   // radius
-        0.85   // threshold
+        1.5,   // strength
+        0.2,   // radius
+        0.1    // threshold
     );
-    composer.addPass(bloomPass);
 
+    //composer.addPass(bloomPass);
+
+
+
+    // === GRID MATERIAL SETUP (shader-based, world-space grid) ===
+    const gridMaterial = createGridMaterial();
 
 
 
     // Clock for animations
     clock = new THREE.Clock();
+
 
     // GLTF Loader
     const loader = new GLTFLoader();
@@ -101,10 +174,15 @@ function init() {
             model = gltf.scene;
             model.traverse((child) => {
                 if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
+                    // Turn off shadows
+                    child.castShadow = false;
+                    child.receiveShadow = false;
+
+                    // Apply the procedural grid material
+                    child.material = gridMaterial;
                 }
             });
+
 
             // Position/scale your model so it looks good
             model.position.set(0, 0, 0);
