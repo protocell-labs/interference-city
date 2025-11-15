@@ -263,19 +263,58 @@ if (GLTFLoader) {
         }
       });
 
-      // Compute bounding box
+      // Compute bounding box in world space
       root.updateWorldMatrix(true, true);
       const bbox = new THREE.Box3().setFromObject(root);
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
       bbox.getCenter(boundsCenter);
+
       boundsMin.copy(bbox.min);
       boundsMax.copy(bbox.max);
 
-      console.log("GLB bounds:", boundsMin, boundsMax);
+      console.log("GLB bounds:", boundsMin, boundsMax, "size:", size);
 
-      // Set field center to GLB center
+      // --- 1) Snap field center to model center ---
       fieldCenter.copy(boundsCenter);
 
-      // Rebuild point cloud with new center & bounds
+      // Snap field position sliders to "center" (slider 0 → center)
+      fieldPosXSlider.value = "0";
+      fieldPosYSlider.value = "0";
+      fieldPosZSlider.value = "0";
+
+      // --- 2) Snap both sources to model center ---
+      source1XSlider.value = "0";
+      source1YSlider.value = "0";
+      source1ZSlider.value = "0";
+      source2XSlider.value = "0";
+      source2YSlider.value = "0";
+      source2ZSlider.value = "0";
+
+      // Update source positions using new bounds & slider values
+      updateSource1FromSliders();
+      updateSource2FromSliders();
+
+      // --- 3) Let field size sliders extend over the entire model ---
+      // Ensure slider max covers at least the full bbox extent on each axis
+      const minSize = 0.5; // don't go too tiny
+      fieldSizeXSlider.min = String(minSize);
+      fieldSizeYSlider.min = String(minSize);
+      fieldSizeZSlider.min = String(minSize);
+
+      fieldSizeXSlider.max = String(Math.max(size.x, minSize));
+      fieldSizeYSlider.max = String(Math.max(size.y, minSize));
+      fieldSizeZSlider.max = String(Math.max(size.z, minSize));
+
+      // Set initial size to cover the whole model on each axis
+      fieldSizeXSlider.value = String(size.x);
+      fieldSizeYSlider.value = String(size.y);
+      fieldSizeZSlider.value = String(size.z);
+
+      // Update field size from sliders
+      updateFieldSizeFromSliders();
+
+      // Rebuild point cloud with new center, bounds, and size
       buildPointCloud();
       updateLabels();
     },
