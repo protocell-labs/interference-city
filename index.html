@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Inteference City</title>
+  <title>E C H O G R I D</title>
   <link rel="stylesheet" href="style.css" />
   <script type="importmap">
     {
@@ -24,18 +24,144 @@
 
 </head>
 
-<div id="gui-container">
-  <label for="material-select">MODEL MATERIAL</label>
-  <select id="material-select">
-    <option value="grid" selected>Grid - solid</option>
-    <option value="gridTransparent">Grid - transparent</option>
-    <option value="gridPoints">Grid - point cloud</option>
-  </select>
-</div>
+<body>
 
+  <!-- Top Title Overlay -->
+  <div id="titleOverlay">E C H O G R I D</div>
 
-<!--script src="./palettes.js"></script-->
-<script type="module" src="main.js"></script>
+  <!-- Bottom Credit Overlay -->
+  <div id="creditOverlay">{ p r o t o c e l l : l a b s }</div>
+
+  <!-- Bottom Disclaimer Overlay -->
+  <div id="disclaimerOverlay">Junction Utopia & Dystopia hackathon, 2025</div>
+
+  <!-- Control UI that main.js expects -->
+  <div id="ui">
+    <div class="block">
+      <div class="panel-title">Grid / Simulation</div>
+      <div class="slider-row">
+        <label for="densitySlider">Density</label>
+        <input id="densitySlider" type="range" min="1" max="9" value="4" step="1">
+      </div>
+    </div>
+
+    <div class="block block-volume">
+      <div class="panel-title">Field Volume</div>
+
+      <div class="sub-title">Position (center)</div>
+      <div class="slider-row">
+        <label for="fieldPosXSlider">X</label>
+        <input id="fieldPosXSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="fieldPosYSlider">Y</label>
+        <input id="fieldPosYSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="fieldPosZSlider">Z</label>
+        <input id="fieldPosZSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+
+      <div class="sub-title">Size (world units)</div>
+      <div class="slider-row">
+        <label for="fieldSizeXSlider">Size X</label>
+        <input id="fieldSizeXSlider" type="range" min="2" max="20" value="8" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="fieldSizeYSlider">Size Y</label>
+        <input id="fieldSizeYSlider" type="range" min="2" max="20" value="8" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="fieldSizeZSlider">Size Z</label>
+        <input id="fieldSizeZSlider" type="range" min="2" max="20" value="8" step="1">
+      </div>
+    </div>
+
+    <div class="block block-source1">
+      <div class="panel-title">Source A</div>
+      <div class="slider-row">
+        <label for="freq1Slider">Freq</label>
+        <input id="freq1Slider" type="range" min="0" max="100" value="40" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source1XSlider">X</label>
+        <input id="source1XSlider" type="range" min="-100" max="100" value="-30" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source1YSlider">Y</label>
+        <input id="source1YSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source1ZSlider">Z</label>
+        <input id="source1ZSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source1AutoToggle">Animate</label>
+        <input id="source1AutoToggle" type="checkbox" checked>
+      </div>
+    </div>
+
+    <div class="block block-source2">
+      <div class="panel-title">Source B</div>
+      <div class="slider-row">
+        <label for="freq2Slider">Freq</label>
+        <input id="freq2Slider" type="range" min="0" max="100" value="60" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source2XSlider">X</label>
+        <input id="source2XSlider" type="range" min="-100" max="100" value="30" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source2YSlider">Y</label>
+        <input id="source2YSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source2ZSlider">Z</label>
+        <input id="source2ZSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source2AutoToggle">Animate</label>
+        <input id="source2AutoToggle" type="checkbox" checked>
+      </div>
+    </div>
+
+    <div class="block block-source3">
+      <div class="panel-title">Source C</div>
+      <div class="slider-row">
+        <label for="freq3Slider">Freq</label>
+        <input id="freq3Slider" type="range" min="0" max="100" value="60" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source3XSlider">X</label>
+        <input id="source3XSlider" type="range" min="-100" max="100" value="30" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source3YSlider">Y</label>
+        <input id="source3YSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source3ZSlider">Z</label>
+        <input id="source3ZSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source3AutoToggle">Animate</label>
+        <input id="source3AutoToggle" type="checkbox" checked>
+      </div>
+    </div>
+
+    <label>
+      Material:
+      <select id="materialSelect">
+        <option value="grid">Grid (solid)</option>
+        <option value="gridTransparent">Grid (wire)</option>
+        <option value="gridPoints">Grid (points)</option>
+      </select>
+    </label>
+
+    <div id="labels"></div>
+  </div>
+  <script type="module" src="main.js"></script>
+  <!--script src="./palettes.js"></script-->
 </body>
 
 </html>
