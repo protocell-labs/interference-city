@@ -30,9 +30,13 @@ const boundsCenter = new THREE.Vector3(0, 0, 0);
 
 // density 1–5 → points per unit
 function mapDensityToPPU(densityValue) {
-  const base = 1.0;
-  const step = 0.5; // 1→1.0, 2→1.5, 3→2.0, 4→2.5, 5→3.0
-  return base + (densityValue - 1) * step;
+  // New lower-density range: 1..4
+  // 1 → 0.2, 2 → 0.4, 3 → 0.6, 4 → 0.8, 5 → 1.0
+  if (densityValue <= 5) {
+    const minPpu = 0.2;                     // very low density
+    const stepLow = (1.0 - minPpu) / 4.0;   // 0.2 per step
+    return minPpu + (densityValue - 1) * stepLow;
+  }
 }
 
 function mapSliderToFrequency(v) {
