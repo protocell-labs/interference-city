@@ -1,83 +1,131 @@
  body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-      color: white;
-      font-family: sans-serif;
-    }
+   margin: 0;
+   overflow: hidden;
+   background: black;
+   color: white;
+   font-family: sans-serif;
+ }
 
-    #ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      padding: 10px;
-      background: rgba(0, 0, 0, 0.75);
-      border-radius: 8px;
-      z-index: 9999;
-      font-size: 12px;
-      line-height: 1.4;
-      max-width: 340px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.7);
-    }
+ #ui {
+   position: absolute;
+   top: 10px;
+   left: 10px;
+   padding: 6px;
+   background: rgba(0, 0, 0, 0.75);
+   border-radius: 8px;
+   z-index: 9999;
+   font-size: 12px;
+   line-height: 1.4;
+   max-width: 200px;
+   box-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
+ }
 
-    .panel-title {
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
+ .panel-title {
+   font-weight: bold;
+   margin-bottom: 4px;
+ }
 
-    .sub-title {
-      font-size: 11px;
-      opacity: 0.8;
-      margin-top: 4px;
-      margin-bottom: 2px;
-    }
+ .sub-title {
+   font-size: 11px;
+   opacity: 0.8;
+   margin-top: 4px;
+   margin-bottom: 2px;
+ }
 
-    .block {
-      margin-bottom: 10px;
-      padding: 6px;
-      border-radius: 6px;
-      border: 1px solid rgba(255,255,255,0.15);
-    }
+ .block {
+   margin-bottom: 10px;
+   padding: 6px;
+   border-radius: 6px;
+   border: 1px solid rgba(255, 255, 255, 0.15);
+ }
 
-    .block-source1 {
-      border-color: rgba(255,80,80,0.7);
-    }
+ .block-source1 {
+   border-color: rgba(0, 255, 0, 1.0);
+ }
 
-    .block-source2 {
-      border-color: rgba(80,255,80,0.7);
-    }
+ .block-source2 {
+   border-color: rgba(0, 255, 0, 1.0);
+ }
 
-    .block-volume {
-      border-color: rgba(80,160,255,0.7);
-    }
+ .block-volume {
+   border-color: rgba(0, 255, 0, 1.0);
+ }
 
-    .block-source1 .panel-title {
-      color: #ff8080;
-    }
+ .block-source1 .panel-title {
+   color: #00ff00;
+ }
 
-    .block-source2 .panel-title {
-      color: #80ff80;
-    }
+ .block-source2 .panel-title {
+   color: #00ff00;
+ }
 
-    .block-volume .panel-title {
-      color: #80aaff;
-    }
+ .block-volume .panel-title {
+   color: #00ff00;
+ }
 
-    .slider-row {
-      display: flex;
-      align-items: center;
-      margin: 2px 0;
-      gap: 6px;
-    }
+ .slider-row {
+   display: flex;
+   align-items: center;
+   margin: 2px 0;
+   gap: 6px;
+ }
 
-    .slider-row label {
-      flex: 0 0 44px; /* fixed width label */
-    }
+ .slider-row label {
+   flex: 0 0 44px;
+   /* fixed width label */
+ }
 
-    .slider-row input[type="range"] {
-      flex: 1;
-    }
+ .slider-row input[type="range"] {
+   flex: 1;
+ }
 
-    #labels {
-      margin-top: 6px;
-    }
+ #labels {
+   margin-top: 6px;
+ }
+
+
+ /* ----- SLIDER STYLE (green theme) ----- */
+
+/* WebKit browsers (Chrome, Edge, Safari) */
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: rgba(0, 255, 0, 0.3); /* track color */
+  border-radius: 4px;
+  outline: none;
+}
+
+/* Track */
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: rgba(0, 255, 0, 0.4);
+  border-radius: 4px;
+}
+
+/* Thumb (the circle) */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 14px;
+  background: #00ff00;       /* bright green */
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -5px;          /* centers thumb on the track */
+}
+
+/* Firefox */
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: rgba(0, 255, 0, 0.4);
+  border-radius: 4px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  background: #00ff00;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}

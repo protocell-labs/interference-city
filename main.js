@@ -14,7 +14,7 @@ let gridMaterial;
 let gridWireMaterial;
 let gridPointsMaterial;
 
-let currentMaterialMode = "grid";
+let currentMaterialMode = "gridTransparent"; // default material
 
 
 const F_MIN = 3000;
@@ -68,7 +68,7 @@ function createGridMaterial() {
     uniforms: {
       uLineColor: { value: new THREE.Color(0x00ff00) }, // neon green
       uBgColor: { value: new THREE.Color(0x000000) },   // black
-      uScale: { value: 0.2 },                           // grid density
+      uScale: { value: 0.8 },                           // grid density
       uThickness: { value: 0.02 }                       // line thickness
     },
     vertexShader: `
@@ -122,7 +122,7 @@ function createGridWireMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: {
       uLineColor: { value: new THREE.Color(0x00ff00) },
-      uScale: { value: 0.2 },
+      uScale: { value: 0.8 },
       uThickness: { value: 0.02 }
     },
     vertexShader: `
@@ -171,7 +171,7 @@ function createGridWireMaterial() {
       }
     `,
     transparent: true,
-    depthWrite: false,
+    depthWrite: true,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending
   });
@@ -229,7 +229,7 @@ function createGridPointsMaterial() {
       }
     `,
     transparent: true,
-    depthWrite: false,
+    depthWrite: true,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending
   });
@@ -268,21 +268,27 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(
-  50,
+  65,
   window.innerWidth / window.innerHeight,
   0.1,
   2000
 );
-camera.position.set(200, 400, 200);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 50, 0); //200, 400, 200
+
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+// After creating controls
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+
+// Set the point the camera should orbit around / look at:
+controls.target.set(0, 150, 0);
+controls.update(); // apply immediately
+
 
 const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
 dirLight.position.set(10, 15, 8);
@@ -426,13 +432,13 @@ function buildPointCloud() {
 // -------------------------------
 const source1Mesh = new THREE.Mesh(
   new THREE.SphereGeometry(0.3, 24, 16),
-  new THREE.MeshBasicMaterial({ color: 0xff4040 })
+  new THREE.MeshBasicMaterial({ color: 0xffff00 })
 );
 scene.add(source1Mesh);
 
 const source2Mesh = new THREE.Mesh(
   new THREE.SphereGeometry(0.3, 24, 16),
-  new THREE.MeshBasicMaterial({ color: 0x40ff40 })
+  new THREE.MeshBasicMaterial({ color: 0xffff00 })
 );
 scene.add(source2Mesh);
 
@@ -516,12 +522,12 @@ if (GLTFLoader) {
       fieldPosZSlider.value = "0";
 
       // --- 2) Snap both sources to model center ---
-      source1XSlider.value = "0";
+      source1XSlider.value = "-15";
       source1YSlider.value = "0";
       source1ZSlider.value = "0";
       source2XSlider.value = "0";
       source2YSlider.value = "0";
-      source2ZSlider.value = "0";
+      source2ZSlider.value = "-30";
 
       // Update source positions using new bounds & slider values
       updateSource1FromSliders();
