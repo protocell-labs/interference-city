@@ -535,9 +535,9 @@ if (GLTFLoader) {
       fieldSizeZSlider.max = String(Math.max(size.z, minSize));
 
       // Set initial size to cover the whole model on each axis
-      fieldSizeXSlider.value = String(size.x) / 10;
-      fieldSizeYSlider.value = String(size.y) / 10;
-      fieldSizeZSlider.value = String(size.z) / 10;
+      fieldSizeXSlider.value = String(size.x) / 1;
+      fieldSizeYSlider.value = String(size.y) / 20;
+      fieldSizeZSlider.value = String(size.z) / 1;
 
       // Update field size from sliders
       updateFieldSizeFromSliders();
