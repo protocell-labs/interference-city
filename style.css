@@ -2,21 +2,21 @@
    margin: 0;
    overflow: hidden;
    background: black;
-   color: white;
+   color: red;
    font-family: sans-serif;
  }
 
  #ui {
    position: absolute;
    top: 10px;
-   left: 10px;
+   right: 10px;
    padding: 6px;
    background: rgba(0, 0, 0, 0.75);
    border-radius: 8px;
    z-index: 9999;
    font-size: 12px;
    line-height: 1.4;
-   max-width: 200px;
+   max-width: 300px;
    box-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
  }
 
@@ -36,31 +36,31 @@
    margin-bottom: 10px;
    padding: 6px;
    border-radius: 6px;
-   border: 1px solid rgba(255, 255, 255, 0.15);
+   border: 1px solid rgba(0, 0, 255, 1.00);
  }
 
  .block-source1 {
-   border-color: rgba(0, 255, 0, 1.0);
+   border-color: rgba(0, 0, 255, 1.0);
  }
 
  .block-source2 {
-   border-color: rgba(0, 255, 0, 1.0);
+   border-color: rgba(0, 0, 255, 1.0);
  }
 
  .block-volume {
-   border-color: rgba(0, 255, 0, 1.0);
+   border-color: rgba(0, 0, 255, 1.0);
  }
 
  .block-source1 .panel-title {
-   color: #00ff00;
+   color: red;
  }
 
  .block-source2 .panel-title {
-   color: #00ff00;
+   color: red;
  }
 
  .block-volume .panel-title {
-   color: #00ff00;
+   color: red;
  }
 
  .slider-row {
@@ -86,46 +86,123 @@
 
  /* ----- SLIDER STYLE (green theme) ----- */
 
-/* WebKit browsers (Chrome, Edge, Safari) */
-input[type="range"] {
-  -webkit-appearance: none;
-  width: 100%;
-  height: 4px;
-  background: rgba(0, 255, 0, 0.3); /* track color */
-  border-radius: 4px;
-  outline: none;
-}
+ /* WebKit browsers (Chrome, Edge, Safari) */
+ input[type="range"] {
+   -webkit-appearance: none;
+   width: 100%;
+   height: 4px;
+   background: rgba(0, 0, 255, 0.3);
+   /* track color */
+   border-radius: 4px;
+   outline: none;
+ }
 
-/* Track */
-input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
-  background: rgba(0, 255, 0, 0.4);
-  border-radius: 4px;
-}
+ /* Track */
+ input[type="range"]::-webkit-slider-runnable-track {
+   height: 4px;
+   background: rgba(0, 0, 255, 0.4);
+   border-radius: 4px;
+ }
 
-/* Thumb (the circle) */
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  height: 14px;
-  width: 14px;
-  background: #00ff00;       /* bright green */
-  border-radius: 50%;
-  cursor: pointer;
-  margin-top: -5px;          /* centers thumb on the track */
-}
+ /* Thumb (the circle) */
+ input[type="range"]::-webkit-slider-thumb {
+   -webkit-appearance: none;
+   height: 14px;
+   width: 14px;
+   background: #0000ff;
+   /* bright green */
+   border-radius: 50%;
+   cursor: pointer;
+   margin-top: -5px;
+   /* centers thumb on the track */
+ }
 
-/* Firefox */
-input[type="range"]::-moz-range-track {
-  height: 4px;
-  background: rgba(0, 255, 0, 0.4);
-  border-radius: 4px;
-}
+ /* Firefox */
+ input[type="range"]::-moz-range-track {
+   height: 4px;
+   background: rgba(0, 0, 255, 0.4);
+   border-radius: 4px;
+ }
 
-input[type="range"]::-moz-range-thumb {
-  height: 14px;
-  width: 14px;
-  background: #00ff00;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-}
+ input[type="range"]::-moz-range-thumb {
+   height: 14px;
+   width: 14px;
+   background: #0000ff;
+   border: none;
+   border-radius: 50%;
+   cursor: pointer;
+ }
+
+ /* Style for the material dropdown */
+ #materialSelect {
+   background: black;
+   /* dropdown background */
+   color: red;
+   /* text color */
+   border: 1px solid red;
+   /* optional: red border */
+   padding: 4px 6px;
+   border-radius: 4px;
+   font-size: 12px;
+ }
+
+ /* Optional: dropdown arrow color (for Chrome/WebKit) */
+ #materialSelect::-ms-expand {
+   display: none;
+   /* hide Windows arrow */
+ }
+
+ #materialSelect {
+   -webkit-appearance: none;
+   -moz-appearance: none;
+   appearance: none;
+   background-image:
+     linear-gradient(45deg, transparent 50%, red 50%),
+     linear-gradient(135deg, red 50%, transparent 50%),
+     linear-gradient(to right, black, black);
+   background-position:
+     calc(100% - 12px) calc(50% - 4px),
+     calc(100% - 6px) calc(50% - 4px),
+     100% 0;
+   background-size:
+     6px 6px,
+     6px 6px,
+     1.5em 100%;
+   background-repeat: no-repeat;
+ }
+
+
+ /* ----- TITLE OVERLAYS ----- */
+
+ #titleOverlay {
+   position: absolute;
+   top: 12px;
+   left: 50%;
+   transform: translateX(-50%);
+   color: red;
+   font-size: 20px;
+   font-weight: bold;
+   z-index: 99999;
+   pointer-events: none;
+   /* allows clicking through */
+   background: rgba(0, 0, 0, 0.75);
+   /* black background */
+   padding: 2px 8px;
+   /* spacing around text */
+ }
+
+ #creditOverlay {
+   position: absolute;
+   bottom: 12px;
+   left: 50%;
+   transform: translateX(-50%);
+   color: red;
+   font-size: 14px;
+   opacity: 1.0;
+   z-index: 99999;
+   pointer-events: none;
+   background: rgba(0, 0, 0, 0.75);
+   /* black background */
+   padding: 2px 8px;
+   /* spacing around text */
+ }

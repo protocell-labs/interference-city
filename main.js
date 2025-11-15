@@ -66,7 +66,7 @@ function mapSliderToBounds(v, min, max) {
 function createGridMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: {
-      uLineColor: { value: new THREE.Color(0x00ff00) }, // neon green
+      uLineColor: { value: new THREE.Color(0x0000ff) }, // blue
       uBgColor: { value: new THREE.Color(0x000000) },   // black
       uScale: { value: 0.8 },                           // grid density
       uThickness: { value: 0.02 }                       // line thickness
@@ -121,7 +121,7 @@ function createGridMaterial() {
 function createGridWireMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: {
-      uLineColor: { value: new THREE.Color(0x00ff00) },
+      uLineColor: { value: new THREE.Color(0x0000ff) },
       uScale: { value: 0.8 },
       uThickness: { value: 0.02 }
     },
@@ -180,7 +180,7 @@ function createGridWireMaterial() {
 function createGridPointsMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: {
-      uPointColor: { value: new THREE.Color(0x00ff00) },
+      uPointColor: { value: new THREE.Color(0x0000ff) },
       uScale: { value: 0.75 },
       uRadius: { value: 0.10 }
     },
