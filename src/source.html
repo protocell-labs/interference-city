@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>3D Radio Wave - Point Source</title>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 6px;
+      z-index: 9999;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    #frequencySlider,
+    #densitySlider,
+    #sourceXSlider,
+    #sourceYSlider,
+    #sourceZSlider {
+      width: 240px;
+    }
+
+    .slider-label {
+      margin-top: 4px;
+      display: block;
+    }
+
+    #labels {
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="ui">
+  <label for="frequencySlider" class="slider-label">Frequency (Radio Band):</label>
+  <!-- 0–100 slider mapped to 3 kHz–3 GHz -->
+  <input id="frequencySlider" type="range" min="0" max="100" value="40" step="1">
+
+  <label for="densitySlider" class="slider-label">Grid density:</label>
+  <!-- 1–5 → resolution levels -->
+  <input id="densitySlider" type="range" min="1" max="5" value="3" step="1">
+
+  <label class="slider-label">Source X position:</label>
+  <input id="sourceXSlider" type="range" min="-100" max="100" value="0" step="1">
+
+  <label class="slider-label">Source Y position:</label>
+  <input id="sourceYSlider" type="range" min="-100" max="100" value="0" step="1">
+
+  <label class="slider-label">Source Z position:</label>
+  <input id="sourceZSlider" type="range" min="-100" max="100" value="0" step="1">
+
+  <div id="labels"></div>
+</div>
+
+<!-- Your requested Three.js import -->
+<script src="../dist/three.min.js"></script>
+
+<script>
+  if (!window.THREE) {
+    alert("THREE failed to load. Check ../dist/three.min.js path.");
+  }
+
+  // -------------------------------
+  // Frequency mapping 3 kHz → 3 GHz
+  // -------------------------------
+  const F_MIN = 3000;        // 3 kHz
+  const F_MAX = 3000000000;  // 3 GHz
+
+  function mapSliderToFrequency(v) {
+    const t = v / 100; // slider is 0–100
+    const logMin = Math.log10(F_MIN);
+    const logMax = Math.log10(F_MAX);
+    const logF = logMin + (logMax - logMin) * t;
+    return Math.pow(10, logF);
+  }
+
+  // Grid resolution mapping
+  function mapSliderToResolution(densityValue) {
+    const base = 15;
+    const step = 10;
+    return base + (densityValue - 1) * step; // 1→15, 2→25, 3→35, 4→45, 5→55
+  }
+
+  // Map source sliders (-100..100) to world coords [-R, R]
+  const SOURCE_RANGE = 6; // world-space range on each axis
+
+  function mapSliderToSource(v) {
+    const t = v / 100; // v ∈ [-100, 100] → t ∈ [-1, 1]
+    return t * SOURCE_RANGE;
+  }
+
+  // -------------------------------
+  // Radio amplitude from point source
+  // -------------------------------
+  function radioAmplitudePointSource(t, f, px, py, pz, sx, sy, sz) {
+    // px,py,pz: point position
+    // sx,sy,sz: source position
+    const dx = px - sx;
+    const dy = py - sy;
+    const dz = pz - sz;
+
+    const r = Math.sqrt(dx*dx + dy*dy + dz*dz) + 1e-6; // avoid 0
+
+    // For visual purposes, we decouple k and omega slightly
+    // so the wave is visible on our small grid.
+    const lambdaVis = 2.0;                // visual wavelength (~2 units)
+    const k = 2 * Math.PI / lambdaVis;    // visual wave number
+
+    // Normalize radio frequency to a smaller visual angular frequency
+    const norm = (f - F_MIN) / (F_MAX - F_MIN); // 0..1
+    const omega = 2 * Math.PI * (0.5 + norm * 2.0); // 0.5..2.5 cycles/sec
+
+    // Spherical wave: sin(kr - ωt)/r
+    const phase = k * r - omega * t;
+    return Math.sin(phase) / (1.0 + 0.3 * r);
+  }
+
+  // -------------------------------
+  // Three.js scene setup
+  // -------------------------------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+
+  const camera = new THREE.PerspectiveCamera(
+    50, window.innerWidth / window.innerHeight, 0.1, 200
+  );
+  camera.position.set(10, 10, 18);
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  dirLight.position.set(10, 15, 8);
+  scene.add(dirLight);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+  scene.add(ambient);
+
+  // -------------------------------
+  // Point cloud grid
+  // -------------------------------
+  let points = null;
+  let geometry = null;
+  let basePositions = null;
+  let currentResolution = 0;
+  const GRID_SIZE = 8; // extent [-GRID_SIZE/2, GRID_SIZE/2]
+
+  function buildPointCloud(resolution) {
+    if (points) {
+      scene.remove(points);
+      points.geometry.dispose();
+      points.material.dispose();
+      points = null;
+    }
+
+    currentResolution = resolution;
+
+    const numPoints = resolution * resolution * resolution;
+    basePositions = new Float32Array(numPoints * 3);
+    const positions = new Float32Array(numPoints * 3);
+
+    let i = 0;
+    for (let ix = 0; ix < resolution; ix++) {
+      const x = (ix / (resolution - 1) - 0.5) * GRID_SIZE;
+      for (let iy = 0; iy < resolution; iy++) {
+        const y = (iy / (resolution - 1) - 0.5) * GRID_SIZE;
+        for (let iz = 0; iz < resolution; iz++) {
+          const z = (iz / (resolution - 1) - 0.5) * GRID_SIZE;
+
+          const idx = i * 3;
+          basePositions[idx]     = x;
+          basePositions[idx + 1] = y;
+          basePositions[idx + 2] = z;
+
+          positions[idx]     = x;
+          positions[idx + 1] = y;
+          positions[idx + 2] = z;
+
+          i++;
+        }
+      }
+    }
+
+    geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(positions, 3)
+    );
+
+    const material = new THREE.PointsMaterial({
+      color: 0x00ffff,
+      size: 0.06,
+      sizeAttenuation: true
+    });
+
+    points = new THREE.Points(geometry, material);
+    scene.add(points);
+  }
+
+  // -------------------------------
+  // Movable source (red sphere)
+  // -------------------------------
+  const sourceGeometry = new THREE.SphereGeometry(0.3, 24, 16);
+  const sourceMaterial = new THREE.MeshBasicMaterial({ color: 0xff4040 });
+  const sourceMesh = new THREE.Mesh(sourceGeometry, sourceMaterial);
+  scene.add(sourceMesh);
+
+  const sourcePos = new THREE.Vector3(0, 0, 0);
+
+  function updateSourcePositionFromSliders() {
+    const sxVal = Number(sourceXSlider.value);
+    const syVal = Number(sourceYSlider.value);
+    const szVal = Number(sourceZSlider.value);
+
+    sourcePos.x = mapSliderToSource(sxVal);
+    sourcePos.y = mapSliderToSource(syVal);
+    sourcePos.z = mapSliderToSource(szVal);
+
+    sourceMesh.position.copy(sourcePos);
+  }
+
+  // -------------------------------
+  // UI & sliders
+  // -------------------------------
+  const freqSlider      = document.getElementById("frequencySlider");
+  const densitySlider   = document.getElementById("densitySlider");
+  const sourceXSlider   = document.getElementById("sourceXSlider");
+  const sourceYSlider   = document.getElementById("sourceYSlider");
+  const sourceZSlider   = document.getElementById("sourceZSlider");
+  const labelsDiv       = document.getElementById("labels");
+
+  let freqSliderVal    = Number(freqSlider.value);
+  let densitySliderVal = Number(densitySlider.value);
+
+  let frequency = mapSliderToFrequency(freqSliderVal);
+  let resolution = mapSliderToResolution(densitySliderVal);
+
+  function updateLabels() {
+    const MHz = frequency / 1e6;
+    const numPoints = resolution * resolution * resolution;
+
+    labelsDiv.innerHTML =
+      "Frequency: " + frequency.toExponential(3) + " Hz (" + MHz.toFixed(3) + " MHz)" +
+      "<br>Grid: " + resolution + " × " + resolution + " × " + resolution +
+      " ≈ " + numPoints.toLocaleString() + " points" +
+      "<br>Source: (" +
+      sourcePos.x.toFixed(2) + ", " +
+      sourcePos.y.toFixed(2) + ", " +
+      sourcePos.z.toFixed(2) + ")";
+  }
+
+  freqSlider.addEventListener("input", function () {
+    freqSliderVal = Number(freqSlider.value);
+    frequency = mapSliderToFrequency(freqSliderVal);
+    updateLabels();
+  });
+
+  densitySlider.addEventListener("input", function () {
+    densitySliderVal = Number(densitySlider.value);
+    resolution = mapSliderToResolution(densitySliderVal);
+    buildPointCloud(resolution);
+    updateLabels();
+  });
+
+  sourceXSlider.addEventListener("input", function () {
+    updateSourcePositionFromSliders();
+    updateLabels();
+  });
+  sourceYSlider.addEventListener("input", function () {
+    updateSourcePositionFromSliders();
+    updateLabels();
+  });
+  sourceZSlider.addEventListener("input", function () {
+    updateSourcePositionFromSliders();
+    updateLabels();
+  });
+
+  // Initial setup
+  updateSourcePositionFromSliders();
+  buildPointCloud(resolution);
+  updateLabels();
+
+  // -------------------------------
+  // Animation loop
+  // -------------------------------
+  const clock = new THREE.Clock();
+  const AMPLITUDE_SCALE = 0.6;
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const t = clock.getElapsedTime();
+
+    if (points && geometry && basePositions) {
+      const pos = geometry.attributes.position.array;
+      const numPoints = basePositions.length / 3;
+
+      for (let i = 0; i < numPoints; i++) {
+        const idx = i * 3;
+
+        const x0 = basePositions[idx];
+        const y0 = basePositions[idx + 1];
+        const z0 = basePositions[idx + 2];
+
+        const A = radioAmplitudePointSource(
+          t, frequency,
+          x0, y0, z0,
+          sourcePos.x, sourcePos.y, sourcePos.z
+        );
+
+        pos[idx]     = x0;
+        pos[idx + 1] = y0 + A * AMPLITUDE_SCALE;
+        pos[idx + 2] = z0;
+      }
+
+      geometry.attributes.position.needsUpdate = true;
+    }
+
+    // slow rotation so you can see the structure
+    scene.rotation.y += 0.0015;
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // For messing around in console if you want:
+  window.radioAmplitudePointSource = radioAmplitudePointSource;
+</script>
+
+</body>
+</html>

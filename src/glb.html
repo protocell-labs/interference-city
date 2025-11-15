@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>3D Radio Wave - Two Point Sources Interference</title>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.75);
+      border-radius: 8px;
+      z-index: 9999;
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 320px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.7);
+    }
+
+    .panel-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .block {
+      margin-bottom: 10px;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .block-source1 {
+      border-color: rgba(255,80,80,0.7);
+    }
+
+    .block-source2 {
+      border-color: rgba(80,255,80,0.7);
+    }
+
+    .block-source1 .panel-title {
+      color: #ff8080;
+    }
+
+    .block-source2 .panel-title {
+      color: #80ff80;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      margin: 2px 0;
+      gap: 6px;
+    }
+
+    .slider-row label {
+      flex: 0 0 38px; /* fixed width label */
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+    }
+
+    #labels {
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="ui">
+  <div class="block">
+    <div class="panel-title">Grid / Simulation</div>
+    <div class="slider-row">
+      <label for="densitySlider">Density</label>
+      <input id="densitySlider" type="range" min="1" max="5" value="3" step="1">
+    </div>
+  </div>
+
+  <div class="block block-source1">
+    <div class="panel-title">Source 1 (Red)</div>
+    <div class="slider-row">
+      <label for="freq1Slider">Freq</label>
+      <input id="freq1Slider" type="range" min="0" max="100" value="40" step="1">
+    </div>
+    <div class="slider-row">
+      <label for="source1XSlider">X</label>
+      <input id="source1XSlider" type="range" min="-100" max="100" value="-30" step="1">
+    </div>
+    <div class="slider-row">
+      <label for="source1YSlider">Y</label>
+      <input id="source1YSlider" type="range" min="-100" max="100" value="0" step="1">
+    </div>
+    <div class="slider-row">
+      <label for="source1ZSlider">Z</label>
+      <input id="source1ZSlider" type="range" min="-100" max="100" value="0" step="1">
+    </div>
+  </div>
+
+  <div class="block block-source2">
+    <div class="panel-title">Source 2 (Green)</div>
+    <div class="slider-row">
+      <label for="freq2Slider">Freq</label>
+      <input id="freq2Slider" type="range" min="0" max="100" value="60" step="1">
+    </div>
+    <div class="slider-row">
+      <label for="source2XSlider">X</label>
+      <input id="source2XSlider" type="range" min="-100" max="100" value="30" step="1">
+    </div>
+    <div class="slider-row">
+      <label for="source2YSlider">Y</label>
+      <input id="source2YSlider" type="range" min="-100" max="100" value="0" step="1">
+    </div>
+    <div class="slider-row">
+      <label for="source2ZSlider">Z</label>
+      <input id="source2ZSlider" type="range" min="-100" max="100" value="0" step="1">
+    </div>
+  </div>
+
+  <div id="labels"></div>
+</div>
+
+<!-- Three.js local build -->
+<script src="../dist/three.min.js"></script>
+<!-- GLTFLoader non-module (from three/examples/js/loaders/GLTFLoader.js) -->
+<script src="../dist/GLTFLoader.js"></script>
+
+<script>
+  if (!window.THREE) {
+    alert("THREE failed to load. Check ../dist/three.min.js path.");
+  }
+  if (!THREE.GLTFLoader) {
+    console.warn("GLTFLoader not found. GLB obstacles will not load.");
+  }
+
+  // -------------------------------
+  // Frequency mapping 3 kHz → 3 GHz
+  // -------------------------------
+  const F_MIN = 3000;        // 3 kHz
+  const F_MAX = 3000000000;  // 3 GHz
+
+  function mapSliderToFrequency(v) {
+    const t = v / 100; // slider is 0–100
+    const logMin = Math.log10(F_MIN);
+    const logMax = Math.log10(F_MAX);
+    const logF = logMin + (logMax - logMin) * t;
+    return Math.pow(10, logF);
+  }
+
+  // Map real radio frequency to a "visual" wavelength for the sim
+  function getVisualLambdaFromFrequency(f) {
+    if (!isFinite(f) || f <= 0) return 2.0;
+    const norm = (f - F_MIN) / (F_MAX - F_MIN); // 0..1
+    const clamped = Math.max(0, Math.min(1, norm));
+    // 4 units (low freq) down to 1 unit (high freq)
+    return 4.0 - 3.0 * clamped;
+  }
+
+  // Grid resolution mapping
+  function mapSliderToResolution(densityValue) {
+    const base = 15;
+    const step = 10;
+    return base + (densityValue - 1) * step; // 1→15, 2→25, 3→35, 4→45, 5→55
+  }
+
+  // Map source sliders (-100..100) to world coords [-SOURCE_RANGE, SOURCE_RANGE]
+  const SOURCE_RANGE = 6;
+
+  function mapSliderToSource(v) {
+    const t = v / 100; // v ∈ [-100,100] → t ∈ [-1,1]
+    return t * SOURCE_RANGE;
+  }
+
+  // -------------------------------
+  // Interaction rule: size vs wavelength
+  // -------------------------------
+  function classifyInteraction(objectSize, lambdaVis) {
+    const ratio = objectSize / lambdaVis;
+
+    if (ratio < 0.1) {
+      // object size < 1/10 λ → wave mostly passes through
+      return { transmit: 0.9, absorb: 0.1, reflect: 0.0 };
+    } else if (ratio < 2.0) {
+      // ~ same order as λ → scattering & reflection
+      return { transmit: 0.3, absorb: 0.2, reflect: 0.5 };
+    } else {
+      // much larger than λ → strong reflection / absorption
+      return { transmit: 0.1, absorb: 0.6, reflect: 0.3 };
+    }
+  }
+
+  // -------------------------------
+  // Radio amplitude from point source
+  // -------------------------------
+  function radioAmplitudePointSource(t, f, px, py, pz, sx, sy, sz) {
+    const dx = px - sx;
+    const dy = py - sy;
+    const dz = pz - sz;
+
+    const r = Math.sqrt(dx*dx + dy*dy + dz*dz) + 1e-6; // avoid 0
+
+    // Use visual wavelength based on frequency
+    const lambdaVis = getVisualLambdaFromFrequency(f);
+    const k = 2 * Math.PI / lambdaVis;
+
+    // Map radio band to a small visual angular frequency (0.5..2.5 Hz)
+    const norm = (f - F_MIN) / (F_MAX - F_MIN); // 0..1
+    const omega = 2 * Math.PI * (0.5 + norm * 2.0);
+
+    // Spherical wave: sin(kr - ωt)/r (damped with distance)
+    const phase = k * r - omega * t;
+    return Math.sin(phase) / (1.0 + 0.3 * r);
+  }
+
+  // -------------------------------
+  // Three.js scene setup
+  // -------------------------------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+
+  const camera = new THREE.PerspectiveCamera(
+    50, window.innerWidth / window.innerHeight, 0.1, 200
+  );
+  camera.position.set(10, 10, 18);
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  dirLight.position.set(10, 15, 8);
+  scene.add(dirLight);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+  scene.add(ambient);
+
+  // -------------------------------
+  // Obstacles (GLB meshes)
+  // -------------------------------
+  const obstacles = []; // { root, maxSize }
+
+  if (THREE.GLTFLoader) {
+    const gltfLoader = new THREE.GLTFLoader();
+
+    // Example obstacle – change path to your glb
+    gltfLoader.load(
+      "models/obstacle1.glb",
+      function (gltf) {
+        const root = gltf.scene;
+        root.position.set(0, 0, 0);
+        scene.add(root);
+
+        root.updateWorldMatrix(true, true);
+        const bbox = new THREE.Box3().setFromObject(root);
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+        const maxSize = Math.max(size.x, size.y, size.z);
+
+        obstacles.push({ root: root, maxSize: maxSize });
+        console.log("Loaded obstacle1.glb, max size:", maxSize.toFixed(2));
+      },
+      undefined,
+      function (err) {
+        console.warn("Failed to load models/obstacle1.glb:", err);
+      }
+    );
+
+    // You can load more obstacles similarly:
+    // gltfLoader.load("models/obstacle2.glb", ...);
+  }
+
+  // Raycasting helpers for occlusion
+  const raycaster = new THREE.Raycaster();
+  const tmpDir    = new THREE.Vector3();
+  const tmpPoint  = new THREE.Vector3();
+
+  function findObstacleFromHit(hitObject) {
+    for (const o of obstacles) {
+      let current = hitObject;
+      while (current) {
+        if (current === o.root) return o;
+        current = current.parent;
+      }
+    }
+    return null;
+  }
+
+  function isOccludedByObstacles(sourcePos, pointPos) {
+    if (obstacles.length === 0) return null;
+
+    tmpDir.subVectors(pointPos, sourcePos).normalize();
+    const maxDist = sourcePos.distanceTo(pointPos);
+
+    raycaster.set(sourcePos, tmpDir);
+    const roots = obstacles.map(o => o.root);
+    const hits = raycaster.intersectObjects(roots, true);
+
+    if (hits.length === 0) return null;
+
+    const hit = hits[0];
+    if (hit.distance < maxDist - 1e-3) {
+      return findObstacleFromHit(hit.object);
+    }
+
+    return null;
+  }
+
+  // -------------------------------
+  // Point cloud grid
+  // -------------------------------
+  let points = null;
+  let geometry = null;
+  let basePositions = null;
+  let currentResolution = 0;
+  const GRID_SIZE = 8; // extent [-GRID_SIZE/2, GRID_SIZE/2]
+
+  function buildPointCloud(resolution) {
+    if (points) {
+      scene.remove(points);
+      points.geometry.dispose();
+      points.material.dispose();
+      points = null;
+    }
+
+    currentResolution = resolution;
+
+    const numPoints = resolution * resolution * resolution;
+    basePositions = new Float32Array(numPoints * 3);
+    const positions = new Float32Array(numPoints * 3);
+
+    let i = 0;
+    for (let ix = 0; ix < resolution; ix++) {
+      const x = (ix / (resolution - 1) - 0.5) * GRID_SIZE;
+      for (let iy = 0; iy < resolution; iy++) {
+        const y = (iy / (resolution - 1) - 0.5) * GRID_SIZE;
+        for (let iz = 0; iz < resolution; iz++) {
+          const z = (iz / (resolution - 1) - 0.5) * GRID_SIZE;
+
+          const idx = i * 3;
+          basePositions[idx]     = x;
+          basePositions[idx + 1] = y;
+          basePositions[idx + 2] = z;
+
+          positions[idx]     = x;
+          positions[idx + 1] = y;
+          positions[idx + 2] = z;
+
+          i++;
+        }
+      }
+    }
+
+    geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(positions, 3)
+    );
+
+    const material = new THREE.PointsMaterial({
+      color: 0x00ffff,
+      size: 0.06,
+      sizeAttenuation: true
+    });
+
+    points = new THREE.Points(geometry, material);
+    scene.add(points);
+  }
+
+  // -------------------------------
+  // Two sources (spheres) controlled by sliders
+  // -------------------------------
+  const source1Geometry = new THREE.SphereGeometry(0.3, 24, 16);
+  const source1Material = new THREE.MeshBasicMaterial({ color: 0xff4040 }); // red
+  const source1Mesh = new THREE.Mesh(source1Geometry, source1Material);
+  scene.add(source1Mesh);
+
+  const source2Geometry = new THREE.SphereGeometry(0.3, 24, 16);
+  const source2Material = new THREE.MeshBasicMaterial({ color: 0x40ff40 }); // green-ish
+  const source2Mesh = new THREE.Mesh(source2Geometry, source2Material);
+  scene.add(source2Mesh);
+
+  const source1Pos = new THREE.Vector3();
+  const source2Pos = new THREE.Vector3();
+
+  function updateSource1FromSliders() {
+    const sx = Number(source1XSlider.value);
+    const sy = Number(source1YSlider.value);
+    const sz = Number(source1ZSlider.value);
+
+    source1Pos.x = mapSliderToSource(sx);
+    source1Pos.y = mapSliderToSource(sy);
+    source1Pos.z = mapSliderToSource(sz);
+
+    source1Mesh.position.copy(source1Pos);
+  }
+
+  function updateSource2FromSliders() {
+    const sx = Number(source2XSlider.value);
+    const sy = Number(source2YSlider.value);
+    const sz = Number(source2ZSlider.value);
+
+    source2Pos.x = mapSliderToSource(sx);
+    source2Pos.y = mapSliderToSource(sy);
+    source2Pos.z = mapSliderToSource(sz);
+
+    source2Mesh.position.copy(source2Pos);
+  }
+
+  // -------------------------------
+  // UI & sliders
+  // -------------------------------
+  const densitySlider   = document.getElementById("densitySlider");
+
+  const freq1Slider     = document.getElementById("freq1Slider");
+  const source1XSlider  = document.getElementById("source1XSlider");
+  const source1YSlider  = document.getElementById("source1YSlider");
+  const source1ZSlider  = document.getElementById("source1ZSlider");
+
+  const freq2Slider     = document.getElementById("freq2Slider");
+  const source2XSlider  = document.getElementById("source2XSlider");
+  const source2YSlider  = document.getElementById("source2YSlider");
+  const source2ZSlider  = document.getElementById("source2ZSlider");
+
+  const labelsDiv       = document.getElementById("labels");
+
+  let densitySliderVal = Number(densitySlider.value);
+
+  let freq1SliderVal = Number(freq1Slider.value);
+  let freq2SliderVal = Number(freq2Slider.value);
+
+  let freq1 = mapSliderToFrequency(freq1SliderVal);
+  let freq2 = mapSliderToFrequency(freq2SliderVal);
+  let resolution = mapSliderToResolution(densitySliderVal);
+
+  function updateLabels() {
+    const MHz1 = freq1 / 1e6;
+    const MHz2 = freq2 / 1e6;
+    const numPoints = resolution * resolution * resolution;
+
+    labelsDiv.innerHTML =
+      "Grid: " + resolution + " × " + resolution + " × " + resolution +
+      " ≈ " + numPoints.toLocaleString() + " points" +
+      "<br>Source 1 freq: " + freq1.toExponential(3) + " Hz (" + MHz1.toFixed(3) + " MHz)" +
+      "<br>Source 1 pos: (" +
+      source1Pos.x.toFixed(2) + ", " +
+      source1Pos.y.toFixed(2) + ", " +
+      source1Pos.z.toFixed(2) + ")" +
+      "<br>Source 2 freq: " + freq2.toExponential(3) + " Hz (" + MHz2.toFixed(3) + " MHz)" +
+      "<br>Source 2 pos: (" +
+      source2Pos.x.toFixed(2) + ", " +
+      source2Pos.y.toFixed(2) + ", " +
+      source2Pos.z.toFixed(2) + ")";
+  }
+
+  densitySlider.addEventListener("input", function () {
+    densitySliderVal = Number(densitySlider.value);
+    resolution = mapSliderToResolution(densitySliderVal);
+    buildPointCloud(resolution);
+    updateLabels();
+  });
+
+  freq1Slider.addEventListener("input", function () {
+    freq1SliderVal = Number(freq1Slider.value);
+    freq1 = mapSliderToFrequency(freq1SliderVal);
+    updateLabels();
+  });
+
+  freq2Slider.addEventListener("input", function () {
+    freq2SliderVal = Number(freq2Slider.value);
+    freq2 = mapSliderToFrequency(freq2SliderVal);
+    updateLabels();
+  });
+
+  source1XSlider.addEventListener("input", function () {
+    updateSource1FromSliders();
+    updateLabels();
+  });
+  source1YSlider.addEventListener("input", function () {
+    updateSource1FromSliders();
+    updateLabels();
+  });
+  source1ZSlider.addEventListener("input", function () {
+    updateSource1FromSliders();
+    updateLabels();
+  });
+
+  source2XSlider.addEventListener("input", function () {
+    updateSource2FromSliders();
+    updateLabels();
+  });
+  source2YSlider.addEventListener("input", function () {
+    updateSource2FromSliders();
+    updateLabels();
+  });
+  source2ZSlider.addEventListener("input", function () {
+    updateSource2FromSliders();
+    updateLabels();
+  });
+
+  // Initial setup
+  updateSource1FromSliders();
+  updateSource2FromSliders();
+  buildPointCloud(resolution);
+  updateLabels();
+
+  // -------------------------------
+  // Animation loop with obstacle attenuation
+  // -------------------------------
+  const clock = new THREE.Clock();
+  const AMPLITUDE_SCALE = 0.4; // smaller because two waves sum
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const t = clock.getElapsedTime();
+
+    const lambdaVis1 = getVisualLambdaFromFrequency(freq1);
+    const lambdaVis2 = getVisualLambdaFromFrequency(freq2);
+
+    if (points && geometry && basePositions) {
+      const pos = geometry.attributes.position.array;
+      const numPoints = basePositions.length / 3;
+
+      for (let i = 0; i < numPoints; i++) {
+        const idx = i * 3;
+
+        const x0 = basePositions[idx];
+        const y0 = basePositions[idx + 1];
+        const z0 = basePositions[idx + 2];
+
+        tmpPoint.set(x0, y0, z0);
+
+        let A1 = radioAmplitudePointSource(
+          t, freq1,
+          x0, y0, z0,
+          source1Pos.x, source1Pos.y, source1Pos.z
+        );
+
+        let A2 = radioAmplitudePointSource(
+          t, freq2,
+          x0, y0, z0,
+          source2Pos.x, source2Pos.y, source2Pos.z
+        );
+
+        // Occlusion & absorption for source 1
+        const obstacle1 = isOccludedByObstacles(source1Pos, tmpPoint);
+        if (obstacle1) {
+          const intr = classifyInteraction(obstacle1.maxSize, lambdaVis1);
+          A1 *= intr.transmit; // simple: reduce amplitude when behind obstacle
+        }
+
+        // Occlusion & absorption for source 2
+        const obstacle2 = isOccludedByObstacles(source2Pos, tmpPoint);
+        if (obstacle2) {
+          const intr = classifyInteraction(obstacle2.maxSize, lambdaVis2);
+          A2 *= intr.transmit;
+        }
+
+        const A_total = A1 + A2; // interference + attenuation
+
+        pos[idx]     = x0;
+        pos[idx + 1] = y0 + A_total * AMPLITUDE_SCALE;
+        pos[idx + 2] = z0;
+      }
+
+      geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Slight rotation to see structure
+    scene.rotation.y += 0.0015;
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // For debugging in console:
+  window.radioAmplitudePointSource = radioAmplitudePointSource;
+</script>
+
+</body>
+</html>

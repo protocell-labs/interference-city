@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>3D Radio Wave - Three.js Local Build</title>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 6px;
+      z-index: 9999;
+    }
+
+    #frequencySlider,
+    #densitySlider {
+      width: 240px;
+    }
+
+    #labels {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+<!-- UI Panel -->
+<div id="ui">
+  <label for="frequencySlider">Frequency (Radio Band):</label><br>
+  <!-- 0–100 slider, mapped to 3 kHz–3 GHz -->
+  <input id="frequencySlider" type="range" min="0" max="100" value="40" step="1"><br>
+
+  <label for="densitySlider" style="margin-top:4px; display:block;">Grid density:</label>
+  <!-- 1–5 → different resolutions -->
+  <input id="densitySlider" type="range" min="1" max="5" value="3" step="1">
+
+  <div id="labels"></div>
+</div>
+
+<!-- Your requested Three.js import -->
+<script src="../dist/three.min.js"></script>
+
+<script>
+  // Make sure THREE is loaded
+  if (!window.THREE) {
+    alert("THREE failed to load. Check ../dist/three.min.js path.");
+  }
+
+  // -------------------------------
+  // Frequency Mapping 3 kHz → 3 GHz
+  // -------------------------------
+  const F_MIN = 3000;        // 3 kHz
+  const F_MAX = 3000000000;  // 3 GHz
+
+  function mapSliderToFrequency(v) {
+    const t = v / 100; // slider is 0–100
+    const logMin = Math.log10(F_MIN);
+    const logMax = Math.log10(F_MAX);
+    const logF = logMin + (logMax - logMin) * t;
+    return Math.pow(10, logF);
+  }
+
+  // Map density slider [1..5] to a grid resolution N (N^3 points)
+  function mapSliderToResolution(densityValue) {
+    // you can tweak these for more/less density
+    const base = 15;
+    const step = 10;
+    return base + (densityValue - 1) * step; // 1→15, 2→25, 3→35, 4→45, 5→55
+  }
+
+  // -------------------------------
+  // Radio Amplitude Function
+  // -------------------------------
+  function radioAmplitude(t, f, x, y, z) {
+    const c = 299792458;          // speed of light
+    const lambda = c / f;
+    const k = 2 * Math.PI / lambda;
+    const omega = 2 * Math.PI * f;
+    // Plane wave propagating in +X direction
+    return Math.sin(k * x - omega * t);
+  }
+
+  // -------------------------------
+  // Three.js Scene Setup
+  // -------------------------------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+
+  const camera = new THREE.PerspectiveCamera(
+    50, window.innerWidth / window.innerHeight, 0.1, 200
+  );
+  camera.position.set(10, 10, 18);
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const light = new THREE.DirectionalLight(0xffffff, 1.0);
+  light.position.set(10, 15, 8);
+  scene.add(light);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+  scene.add(ambient);
+
+  // -------------------------------
+  // 3D Point Grid (THREE.Points)
+  // -------------------------------
+  let points = null;
+  let geometry = null;
+  let basePositions = null; // store original grid positions
+  let currentResolution = 0;
+  const GRID_SIZE = 8; // extent in each axis: [-GRID_SIZE/2, GRID_SIZE/2]
+
+  function buildPointCloud(resolution) {
+    // Cleanup old
+    if (points) {
+      scene.remove(points);
+      points.geometry.dispose();
+      points.material.dispose();
+      points = null;
+    }
+
+    currentResolution = resolution;
+    const numPoints = resolution * resolution * resolution;
+    basePositions = new Float32Array(numPoints * 3);
+    const positions = new Float32Array(numPoints * 3);
+
+    let i = 0;
+    for (let ix = 0; ix < resolution; ix++) {
+      const x = (ix / (resolution - 1) - 0.5) * GRID_SIZE;
+      for (let iy = 0; iy < resolution; iy++) {
+        const y = (iy / (resolution - 1) - 0.5) * GRID_SIZE;
+        for (let iz = 0; iz < resolution; iz++) {
+          const z = (iz / (resolution - 1) - 0.5) * GRID_SIZE;
+
+          const idx = i * 3;
+          basePositions[idx]     = x;
+          basePositions[idx + 1] = y;
+          basePositions[idx + 2] = z;
+
+          positions[idx]     = x;
+          positions[idx + 1] = y;
+          positions[idx + 2] = z;
+
+          i++;
+        }
+      }
+    }
+
+    geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+      color: 0x00ffff,
+      size: 0.06,
+      sizeAttenuation: true
+    });
+
+    points = new THREE.Points(geometry, material);
+    scene.add(points);
+  }
+
+  // -------------------------------
+  // Slider & UI
+  // -------------------------------
+  const freqSlider = document.getElementById("frequencySlider");
+  const densitySlider = document.getElementById("densitySlider");
+  const labelsDiv = document.getElementById("labels");
+
+  let freqSliderVal = Number(freqSlider.value);
+  let densitySliderVal = Number(densitySlider.value);
+
+  let frequency = mapSliderToFrequency(freqSliderVal);
+  let resolution = mapSliderToResolution(densitySliderVal);
+
+  function updateLabels() {
+    const MHz = frequency / 1e6;
+    const numPoints = resolution * resolution * resolution;
+
+    labelsDiv.innerHTML =
+      "Frequency: " + frequency.toExponential(3) + " Hz (" + MHz.toFixed(3) + " MHz)" +
+      "<br>Grid: " + resolution + " × " + resolution + " × " + resolution +
+      " ≈ " + numPoints.toLocaleString() + " points";
+  }
+
+  freqSlider.addEventListener("input", function () {
+    freqSliderVal = Number(freqSlider.value);
+    frequency = mapSliderToFrequency(freqSliderVal);
+    updateLabels();
+  });
+
+  densitySlider.addEventListener("input", function () {
+    densitySliderVal = Number(densitySlider.value);
+    resolution = mapSliderToResolution(densitySliderVal);
+    buildPointCloud(resolution);
+    updateLabels();
+  });
+
+  // Initial setup
+  buildPointCloud(resolution);
+  updateLabels();
+
+  // -------------------------------
+  // Animation
+  // -------------------------------
+  const clock = new THREE.Clock();
+  const AMPLITUDE_SCALE = 0.3;
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const t = clock.getElapsedTime();
+
+    if (points && geometry && basePositions) {
+      const pos = geometry.attributes.position.array;
+      const numPoints = basePositions.length / 3;
+
+      for (let i = 0; i < numPoints; i++) {
+        const idx = i * 3;
+
+        const x0 = basePositions[idx];
+        const y0 = basePositions[idx + 1];
+        const z0 = basePositions[idx + 2];
+
+        const A = radioAmplitude(t, frequency, x0, y0, z0);
+
+        pos[idx]     = x0;
+        pos[idx + 1] = y0 + A * AMPLITUDE_SCALE;
+        pos[idx + 2] = z0;
+      }
+
+      geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Slight auto-rotation so we see depth
+    scene.rotation.y += 0.0015;
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // Expose for debugging in console if you like
+  window.radioAmplitude = radioAmplitude;
+</script>
+
+</body>
+</html>
