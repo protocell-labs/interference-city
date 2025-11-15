@@ -1,0 +1,68 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+    color: white;
+    font-family: sans-serif;
+}
+
+#ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.75);
+    border-radius: 8px;
+    z-index: 9999;
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 320px;
+    box-shadow: 0 0 8px rgba(0,0,0,0.7);
+}
+
+.panel-title {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.block {
+    margin-bottom: 10px;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+.block-source1 {
+    border-color: rgba(255,80,80,0.7);
+}
+
+.block-source2 {
+    border-color: rgba(80,255,80,0.7);
+}
+
+.block-source1 .panel-title {
+    color: #ff8080;
+}
+
+.block-source2 .panel-title {
+    color: #80ff80;
+}
+
+.slider-row {
+    display: flex;
+    align-items: center;
+    margin: 2px 0;
+    gap: 6px;
+}
+
+.slider-row label {
+    flex: 0 0 38px; /* fixed width label */
+}
+
+.slider-row input[type="range"] {
+    flex: 1;
+}
+
+#labels {
+    margin-top: 6px;
+}
