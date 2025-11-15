@@ -25,8 +25,61 @@
 </head>
 
 <body>
-  <!--script src="./palettes.js"></script-->
+
+  <!-- Control UI that main.js expects -->
+  <div id="ui">
+    <div class="block">
+      <div class="panel-title">Grid / Simulation</div>
+      <div class="slider-row">
+        <label for="densitySlider">Density</label>
+        <input id="densitySlider" type="range" min="1" max="5" value="3" step="1">
+      </div>
+    </div>
+
+    <div class="block block-source1">
+      <div class="panel-title">Source 1 (Red)</div>
+      <div class="slider-row">
+        <label for="freq1Slider">Freq</label>
+        <input id="freq1Slider" type="range" min="0" max="100" value="40" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source1XSlider">X</label>
+        <input id="source1XSlider" type="range" min="-100" max="100" value="-30" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source1YSlider">Y</label>
+        <input id="source1YSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source1ZSlider">Z</label>
+        <input id="source1ZSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+    </div>
+
+    <div class="block block-source2">
+      <div class="panel-title">Source 2 (Green)</div>
+      <div class="slider-row">
+        <label for="freq2Slider">Freq</label>
+        <input id="freq2Slider" type="range" min="0" max="100" value="60" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source2XSlider">X</label>
+        <input id="source2XSlider" type="range" min="-100" max="100" value="30" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source2YSlider">Y</label>
+        <input id="source2YSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+      <div class="slider-row">
+        <label for="source2ZSlider">Z</label>
+        <input id="source2ZSlider" type="range" min="-100" max="100" value="0" step="1">
+      </div>
+    </div>
+
+    <div id="labels"></div>
+  </div>
   <script type="module" src="main.js"></script>
+  <!--script src="./palettes.js"></script-->
 </body>
 
 </html>
