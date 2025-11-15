@@ -323,10 +323,13 @@ const vertexShader = `
   uniform float uTime;
   uniform vec3  uSource1Pos;
   uniform vec3  uSource2Pos;
+  uniform vec3  uSource3Pos;
   uniform float uK1;
   uniform float uOmega1;
   uniform float uK2;
   uniform float uOmega2;
+  uniform float uK3;
+  uniform float uOmega3;
   uniform float uPointSize;
 
   varying float vAmplitude;
@@ -343,7 +346,8 @@ const vertexShader = `
 
     float A1 = ampFromSource(p, uSource1Pos, uK1, uOmega1, uTime);
     float A2 = ampFromSource(p, uSource2Pos, uK2, uOmega2, uTime);
-    float A  = A1 + A2;
+    float A3 = ampFromSource(p, uSource3Pos, uK3, uOmega3, uTime);
+    float A  = A1 + A2 + A3;
 
     vAmplitude = A;
 
@@ -411,10 +415,13 @@ function buildPointCloud() {
       uTime: { value: 0 },
       uSource1Pos: { value: new THREE.Vector3() },
       uSource2Pos: { value: new THREE.Vector3() },
+      uSource3Pos: { value: new THREE.Vector3() },
       uK1: { value: 1.0 },
       uOmega1: { value: 1.0 },
       uK2: { value: 1.0 },
       uOmega2: { value: 1.0 },
+      uK3: { value: 1.0 },
+      uOmega3: { value: 1.0 },
       uPointSize: { value: 3.0 }
     },
     vertexShader,
@@ -442,17 +449,25 @@ const source2Mesh = new THREE.Mesh(
 );
 scene.add(source2Mesh);
 
+const source3Mesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.3, 24, 16),
+  new THREE.MeshBasicMaterial({ color: 0xffff00 })
+);
+scene.add(source3Mesh);
+
 const source1Pos = new THREE.Vector3();
 const source2Pos = new THREE.Vector3();
+const source3Pos = new THREE.Vector3();
 
 // Auto-move toggles
-let source1Auto = false;
-let source2Auto = false;
+let source1Auto = true;
+let source2Auto = true;
+let source3Auto = true;
 
 // Hard-coded velocities (you can tweak these)
 const source1Velocity = new THREE.Vector3(1.6, 0.3, 1.0);
 const source2Velocity = new THREE.Vector3(-1.2, 0.4, -1.4);
-
+const source3Velocity = new THREE.Vector3(+1.2, 0.4, -1.4);
 
 function updateSource1FromSliders() {
   const sx = Number(source1XSlider.value);
@@ -478,6 +493,19 @@ function updateSource2FromSliders() {
     mapSliderToBounds(sz, boundsMin.z, boundsMax.z)
   );
   source2Mesh.position.copy(source2Pos);
+}
+
+function updateSource3FromSliders() {
+  const sx = Number(source3XSlider.value);
+  const sy = Number(source3YSlider.value);
+  const sz = Number(source3ZSlider.value);
+
+  source3Pos.set(
+    mapSliderToBounds(sx, boundsMin.x, boundsMax.x),
+    mapSliderToBounds(sy, boundsMin.y, boundsMax.y),
+    mapSliderToBounds(sz, boundsMin.z, boundsMax.z)
+  );
+  source3Mesh.position.copy(source3Pos);
 }
 
 // -------------------------------
@@ -537,10 +565,14 @@ if (GLTFLoader) {
       source2XSlider.value = "0";
       source2YSlider.value = "0";
       source2ZSlider.value = "-30";
+      source3XSlider.value = "-20";
+      source3YSlider.value = "0";
+      source3ZSlider.value = "+30";
 
       // Update source positions using new bounds & slider values
       updateSource1FromSliders();
       updateSource2FromSliders();
+      updateSource3FromSliders();
 
       // --- 3) Let field size sliders extend over the entire model ---
       // Ensure slider max covers at least the full bbox extent on each axis
@@ -594,17 +626,25 @@ const source2XSlider = document.getElementById("source2XSlider");
 const source2YSlider = document.getElementById("source2YSlider");
 const source2ZSlider = document.getElementById("source2ZSlider");
 
+const freq3Slider = document.getElementById("freq3Slider");
+const source3XSlider = document.getElementById("source2XSlider");
+const source3YSlider = document.getElementById("source2YSlider");
+const source3ZSlider = document.getElementById("source2ZSlider");
+
 const source1AutoToggle = document.getElementById("source1AutoToggle");
 const source2AutoToggle = document.getElementById("source2AutoToggle");
+const source3AutoToggle = document.getElementById("source3AutoToggle");
 
 const labelsDiv = document.getElementById("labels");
 
 let densitySliderVal = Number(densitySlider.value);
 let freq1SliderVal = Number(freq1Slider.value);
 let freq2SliderVal = Number(freq2Slider.value);
+let freq3SliderVal = Number(freq3Slider.value);
 
 let freq1 = mapSliderToFrequency(freq1SliderVal);
 let freq2 = mapSliderToFrequency(freq2SliderVal);
+let freq3 = mapSliderToFrequency(freq3SliderVal);
 
 
 function updateAutoSource(dt, pos, vel) {
@@ -678,6 +718,7 @@ function updateFieldSizeFromSliders() {
 function updateLabels() {
   const MHz1 = freq1 / 1e6;
   const MHz2 = freq2 / 1e6;
+  const MHz3 = freq3 / 1e6;
 
   labelsDiv.innerHTML =
     "Field center: (" +
@@ -700,6 +741,11 @@ function updateLabels() {
     source2Pos.x.toFixed(2) + ", " +
     source2Pos.y.toFixed(2) + ", " +
     source2Pos.z.toFixed(2) + ")";
+    "<br>Source 3 freq: " + freq3.toExponential(3) + " Hz (" + MHz3.toFixed(3) + " MHz)" +
+    "<br>Source 3 pos: (" +
+    source3Pos.x.toFixed(2) + ", " +
+    source3Pos.y.toFixed(2) + ", " +
+    source3Pos.z.toFixed(2) + ")";
 }
 
 // --- listeners ---
@@ -737,6 +783,10 @@ source2XSlider.addEventListener("input", () => { updateSource2FromSliders(); upd
 source2YSlider.addEventListener("input", () => { updateSource2FromSliders(); updateLabels(); });
 source2ZSlider.addEventListener("input", () => { updateSource2FromSliders(); updateLabels(); });
 
+source3XSlider.addEventListener("input", () => { updateSource3FromSliders(); updateLabels(); });
+source3YSlider.addEventListener("input", () => { updateSource3FromSliders(); updateLabels(); });
+source3ZSlider.addEventListener("input", () => { updateSource3FromSliders(); updateLabels(); });
+
 source1AutoToggle.addEventListener("change", () => {
   source1Auto = source1AutoToggle.checked;
 });
@@ -745,12 +795,17 @@ source2AutoToggle.addEventListener("change", () => {
   source2Auto = source2AutoToggle.checked;
 });
 
+source3AutoToggle.addEventListener("change", () => {
+  source3Auto = source3AutoToggle.checked;
+});
+
 
 // Initial setup (before GLB bounds override)
 updateFieldCenterFromSliders();
 updateFieldSizeFromSliders();
 updateSource1FromSliders();
 updateSource2FromSliders();
+updateSource3FromSliders();
 buildPointCloud();
 updateLabels();
 
@@ -791,26 +846,43 @@ function animate() {
     source2ZSlider.value = mapWorldToSlider(source2Pos.z, boundsMin.z, boundsMax.z).toFixed(0);
   }
 
+    if (source3Auto) {
+    updateAutoSource(dt, source3Pos, source3Velocity);
+    source3Mesh.position.copy(source3Pos);
+
+    // keep sliders in sync
+    source3XSlider.value = mapWorldToSlider(source3Pos.x, boundsMin.x, boundsMax.x).toFixed(0);
+    source3YSlider.value = mapWorldToSlider(source3Pos.y, boundsMin.y, boundsMax.y).toFixed(0);
+    source3ZSlider.value = mapWorldToSlider(source3Pos.z, boundsMin.z, boundsMax.z).toFixed(0);
+  }
+
   if (material) {
     const lambdaVis1 = getVisualLambdaFromFrequency(freq1);
     const lambdaVis2 = getVisualLambdaFromFrequency(freq2);
+    const lambdaVis3 = getVisualLambdaFromFrequency(freq3);
 
     const k1 = (2 * Math.PI) / lambdaVis1;
     const k2 = (2 * Math.PI) / lambdaVis2;
+    const k3 = (2 * Math.PI) / lambdaVis3;
 
     const norm1 = (freq1 - F_MIN) / (F_MAX - F_MIN);
     const norm2 = (freq2 - F_MIN) / (F_MAX - F_MIN);
+    const norm3 = (freq3 - F_MIN) / (F_MAX - F_MIN);
 
     const omega1 = 2 * Math.PI * (0.5 + Math.max(0, Math.min(1, norm1)) * 2.0);
     const omega2 = 2 * Math.PI * (0.5 + Math.max(0, Math.min(1, norm2)) * 2.0);
+    const omega3 = 2 * Math.PI * (0.5 + Math.max(0, Math.min(1, norm3)) * 2.0);
 
     material.uniforms.uTime.value = t;
     material.uniforms.uSource1Pos.value.copy(source1Pos);
     material.uniforms.uSource2Pos.value.copy(source2Pos);
+    material.uniforms.uSource3Pos.value.copy(source3Pos);
     material.uniforms.uK1.value = k1;
     material.uniforms.uOmega1.value = omega1;
     material.uniforms.uK2.value = k2;
     material.uniforms.uOmega2.value = omega2;
+    material.uniforms.uK3.value = k3;
+    material.uniforms.uOmega3.value = omega3;
   }
 
   controls.update();
