@@ -32,7 +32,7 @@
       <div class="panel-title">Grid / Simulation</div>
       <div class="slider-row">
         <label for="densitySlider">Density</label>
-        <input id="densitySlider" type="range" min="1" max="5" value="3" step="1">
+        <input id="densitySlider" type="range" min="1" max="5" value="1" step="1">
       </div>
     </div>
 
@@ -107,6 +107,15 @@
         <input id="source2ZSlider" type="range" min="-100" max="100" value="0" step="1">
       </div>
     </div>
+
+    <label>
+      Material:
+      <select id="materialSelect">
+        <option value="grid">Grid (solid)</option>
+        <option value="gridTransparent">Grid (wire)</option>
+        <option value="gridPoints">Grid (points)</option>
+      </select>
+    </label>
 
     <div id="labels"></div>
   </div>

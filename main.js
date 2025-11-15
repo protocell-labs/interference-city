@@ -7,6 +7,16 @@ import { GLTFLoader } from "GLTFLoader";
 // -------------------------------
 // Constants & helpers
 // -------------------------------
+
+let model = null; // GLB root, for material switching
+
+let gridMaterial;
+let gridWireMaterial;
+let gridPointsMaterial;
+
+let currentMaterialMode = "grid";
+
+
 const F_MIN = 3000;
 const F_MAX = 3000000000;
 
@@ -15,7 +25,7 @@ const DEFAULT_RANGE = 6;
 
 // Bounds within which we map sliders for field center & sources
 const boundsMin = new THREE.Vector3(-DEFAULT_RANGE, -DEFAULT_RANGE, -DEFAULT_RANGE);
-const boundsMax = new THREE.Vector3( DEFAULT_RANGE,  DEFAULT_RANGE,  DEFAULT_RANGE);
+const boundsMax = new THREE.Vector3(DEFAULT_RANGE, DEFAULT_RANGE, DEFAULT_RANGE);
 const boundsCenter = new THREE.Vector3(0, 0, 0);
 
 // density 1–5 → points per unit
@@ -46,6 +56,207 @@ function mapSliderToBounds(v, min, max) {
   return min + (max - min) * t;
 }
 
+
+
+
+function createGridMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uLineColor: { value: new THREE.Color(0x00ff00) }, // neon green
+      uBgColor: { value: new THREE.Color(0x000000) },   // black
+      uScale: { value: 0.2 },                           // grid density
+      uThickness: { value: 0.02 }                       // line thickness
+    },
+    vertexShader: `
+      varying vec3 vWorldPos;
+      varying vec3 vWorldNormal;
+
+      void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vWorldPos;
+      varying vec3 vWorldNormal;
+
+      uniform vec3 uLineColor;
+      uniform vec3 uBgColor;
+      uniform float uScale;
+      uniform float uThickness;
+
+      void main() {
+        vec3 n  = normalize(vWorldNormal);
+        vec3 an = abs(n);
+        vec2 coord;
+
+        if (an.y >= an.x && an.y >= an.z) {
+          coord = vWorldPos.xz;
+        } else if (an.x >= an.y && an.x >= an.z) {
+          coord = vWorldPos.zy;
+        } else {
+          coord = vWorldPos.xy;
+        }
+
+        coord *= uScale;
+
+        vec2 grid = abs(fract(coord) - 0.5);
+        float distToLine = min(grid.x, grid.y);
+        float mask = step(distToLine, uThickness);
+
+        vec3 color = mix(uBgColor, uLineColor, mask);
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `
+  });
+}
+
+function createGridWireMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uLineColor: { value: new THREE.Color(0x00ff00) },
+      uScale: { value: 0.2 },
+      uThickness: { value: 0.02 }
+    },
+    vertexShader: `
+      varying vec3 vWorldPos;
+      varying vec3 vWorldNormal;
+
+      void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vWorldPos;
+      varying vec3 vWorldNormal;
+
+      uniform vec3 uLineColor;
+      uniform float uScale;
+      uniform float uThickness;
+
+      void main() {
+        vec3 n  = normalize(vWorldNormal);
+        vec3 an = abs(n);
+        vec2 coord;
+
+        if (an.y >= an.x && an.y >= an.z) {
+          coord = vWorldPos.xz;
+        } else if (an.x >= an.y && an.x >= an.z) {
+          coord = vWorldPos.zy;
+        } else {
+          coord = vWorldPos.xy;
+        }
+
+        coord *= uScale;
+
+        vec2 grid = abs(fract(coord) - 0.5);
+        float distToLine = min(grid.x, grid.y);
+        float mask = step(distToLine, uThickness);
+
+        vec3 color = uLineColor;
+        float alpha = mask;
+        if (alpha <= 0.0) discard;
+
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending
+  });
+}
+
+function createGridPointsMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uPointColor: { value: new THREE.Color(0x00ff00) },
+      uScale: { value: 0.75 },
+      uRadius: { value: 0.10 }
+    },
+    vertexShader: `
+      varying vec3 vWorldPos;
+      varying vec3 vWorldNormal;
+
+      void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vWorldPos;
+      varying vec3 vWorldNormal;
+
+      uniform vec3 uPointColor;
+      uniform float uScale;
+      uniform float uRadius;
+
+      void main() {
+        vec3 n  = normalize(vWorldNormal);
+        vec3 an = abs(n);
+        vec2 coord;
+
+        if (an.y >= an.x && an.y >= an.z) {
+          coord = vWorldPos.xz;
+        } else if (an.x >= an.y && an.x >= an.z) {
+          coord = vWorldPos.zy;
+        } else {
+          coord = vWorldPos.xy;
+        }
+
+        coord *= uScale;
+
+        vec2 local = fract(coord) - 0.5;
+        float dist = length(local);
+        float mask = step(dist, uRadius);
+
+        if (mask <= 0.0) discard;
+
+        vec3 color = uPointColor;
+        gl_FragColor = vec4(color, mask);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending
+  });
+}
+
+
+
+function applyMaterialMode(mode) {
+  currentMaterialMode = mode;
+  if (!model) return; // GLB not loaded yet
+
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+
+    switch (mode) {
+      case "grid":
+        if (gridMaterial) child.material = gridMaterial;
+        break;
+
+      case "gridTransparent":
+        if (gridWireMaterial) child.material = gridWireMaterial;
+        break;
+
+      case "gridPoints":
+        if (gridPointsMaterial) child.material = gridPointsMaterial;
+        break;
+    }
+  });
+}
+
+
 // -------------------------------
 // Scene setup
 // -------------------------------
@@ -56,9 +267,9 @@ const camera = new THREE.PerspectiveCamera(
   50,
   window.innerWidth / window.innerHeight,
   0.1,
-  200
+  2000
 );
-camera.position.set(10, 10, 18);
+camera.position.set(200, 400, 200);
 camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -76,11 +287,17 @@ scene.add(dirLight);
 const ambient = new THREE.AmbientLight(0xffffff, 0.3);
 scene.add(ambient);
 
+// --- Grid-style GLB materials ---
+gridMaterial = createGridMaterial();
+gridWireMaterial = createGridWireMaterial();
+gridPointsMaterial = createGridPointsMaterial();
+
+
 // -------------------------------
 // Field volume (position + size)
 // -------------------------------
 const fieldCenter = new THREE.Vector3().copy(boundsCenter);
-const fieldSize   = new THREE.Vector3(8, 8, 8);
+const fieldSize = new THREE.Vector3(8, 8, 8);
 
 let resX = 0, resY = 0, resZ = 0;
 let totalPoints = 0;
@@ -168,7 +385,7 @@ function buildPointCloud() {
         const z = fieldCenter.z + (iz / (resZ - 1) - 0.5) * fieldSize.z;
 
         const idx = i * 3;
-        positions[idx]     = x;
+        positions[idx] = x;
         positions[idx + 1] = y;
         positions[idx + 2] = z;
         i++;
@@ -181,14 +398,14 @@ function buildPointCloud() {
 
   material = new THREE.ShaderMaterial({
     uniforms: {
-      uTime:       { value: 0 },
+      uTime: { value: 0 },
       uSource1Pos: { value: new THREE.Vector3() },
       uSource2Pos: { value: new THREE.Vector3() },
-      uK1:         { value: 1.0 },
-      uOmega1:     { value: 1.0 },
-      uK2:         { value: 1.0 },
-      uOmega2:     { value: 1.0 },
-      uPointSize:  { value: 3.0 }
+      uK1: { value: 1.0 },
+      uOmega1: { value: 1.0 },
+      uK2: { value: 1.0 },
+      uOmega2: { value: 1.0 },
+      uPointSize: { value: 3.0 }
     },
     vertexShader,
     fragmentShader,
@@ -254,18 +471,29 @@ if (GLTFLoader) {
     (gltf) => {
       const root = gltf.scene;
       root.position.set(0, 0, 0);
-      scene.add(root);
 
-      root.traverse((obj) => {
+      model = root; // store reference for material switching
+      scene.add(model);
+
+      model.traverse((obj) => {
         if (obj.isMesh) {
           obj.castShadow = false;
           obj.receiveShadow = false;
+
+          // optional: remember original material
+          obj.userData.originalMaterial = obj.material;
+
+          // initial material (will be overridden by applyMaterialMode as well)
+          obj.material = gridMaterial;
         }
       });
 
+      // Apply whatever mode is currently selected
+      applyMaterialMode(currentMaterialMode);
+
       // Compute bounding box in world space
-      root.updateWorldMatrix(true, true);
-      const bbox = new THREE.Box3().setFromObject(root);
+      model.updateWorldMatrix(true, true);
+      const bbox = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3();
       bbox.getSize(size);
       bbox.getCenter(boundsCenter);
@@ -307,9 +535,9 @@ if (GLTFLoader) {
       fieldSizeZSlider.max = String(Math.max(size.z, minSize));
 
       // Set initial size to cover the whole model on each axis
-      fieldSizeXSlider.value = String(size.x);
-      fieldSizeYSlider.value = String(size.y);
-      fieldSizeZSlider.value = String(size.z);
+      fieldSizeXSlider.value = String(size.x) / 10;
+      fieldSizeYSlider.value = String(size.y) / 10;
+      fieldSizeZSlider.value = String(size.z) / 10;
 
       // Update field size from sliders
       updateFieldSizeFromSliders();
@@ -326,35 +554,49 @@ if (GLTFLoader) {
 // -------------------------------
 // UI wiring
 // -------------------------------
-const densitySlider   = document.getElementById("densitySlider");
+const densitySlider = document.getElementById("densitySlider");
 
 // Field volume sliders
-const fieldPosXSlider   = document.getElementById("fieldPosXSlider");
-const fieldPosYSlider   = document.getElementById("fieldPosYSlider");
-const fieldPosZSlider   = document.getElementById("fieldPosZSlider");
-const fieldSizeXSlider  = document.getElementById("fieldSizeXSlider");
-const fieldSizeYSlider  = document.getElementById("fieldSizeYSlider");
-const fieldSizeZSlider  = document.getElementById("fieldSizeZSlider");
+const fieldPosXSlider = document.getElementById("fieldPosXSlider");
+const fieldPosYSlider = document.getElementById("fieldPosYSlider");
+const fieldPosZSlider = document.getElementById("fieldPosZSlider");
+const fieldSizeXSlider = document.getElementById("fieldSizeXSlider");
+const fieldSizeYSlider = document.getElementById("fieldSizeYSlider");
+const fieldSizeZSlider = document.getElementById("fieldSizeZSlider");
 
 // Source sliders
-const freq1Slider     = document.getElementById("freq1Slider");
-const source1XSlider  = document.getElementById("source1XSlider");
-const source1YSlider  = document.getElementById("source1YSlider");
-const source1ZSlider  = document.getElementById("source1ZSlider");
+const freq1Slider = document.getElementById("freq1Slider");
+const source1XSlider = document.getElementById("source1XSlider");
+const source1YSlider = document.getElementById("source1YSlider");
+const source1ZSlider = document.getElementById("source1ZSlider");
 
-const freq2Slider     = document.getElementById("freq2Slider");
-const source2XSlider  = document.getElementById("source2XSlider");
-const source2YSlider  = document.getElementById("source2YSlider");
-const source2ZSlider  = document.getElementById("source2ZSlider");
+const freq2Slider = document.getElementById("freq2Slider");
+const source2XSlider = document.getElementById("source2XSlider");
+const source2YSlider = document.getElementById("source2YSlider");
+const source2ZSlider = document.getElementById("source2ZSlider");
 
-const labelsDiv       = document.getElementById("labels");
+const labelsDiv = document.getElementById("labels");
 
 let densitySliderVal = Number(densitySlider.value);
-let freq1SliderVal   = Number(freq1Slider.value);
-let freq2SliderVal   = Number(freq2Slider.value);
+let freq1SliderVal = Number(freq1Slider.value);
+let freq2SliderVal = Number(freq2Slider.value);
 
 let freq1 = mapSliderToFrequency(freq1SliderVal);
 let freq2 = mapSliderToFrequency(freq2SliderVal);
+
+
+
+const materialSelect = document.getElementById("materialSelect");
+if (materialSelect) {
+  // set default
+  materialSelect.value = currentMaterialMode;
+
+  materialSelect.addEventListener("change", (event) => {
+    const mode = event.target.value;
+    applyMaterialMode(mode);
+  });
+}
+
 
 function updateFieldCenterFromSliders() {
   fieldCenter.set(
@@ -465,13 +707,13 @@ function animate() {
     const omega1 = 2 * Math.PI * (0.5 + Math.max(0, Math.min(1, norm1)) * 2.0);
     const omega2 = 2 * Math.PI * (0.5 + Math.max(0, Math.min(1, norm2)) * 2.0);
 
-    material.uniforms.uTime.value       = t;
+    material.uniforms.uTime.value = t;
     material.uniforms.uSource1Pos.value.copy(source1Pos);
     material.uniforms.uSource2Pos.value.copy(source2Pos);
-    material.uniforms.uK1.value         = k1;
-    material.uniforms.uOmega1.value     = omega1;
-    material.uniforms.uK2.value         = k2;
-    material.uniforms.uOmega2.value     = omega2;
+    material.uniforms.uK1.value = k1;
+    material.uniforms.uOmega1.value = omega1;
+    material.uniforms.uK2.value = k2;
+    material.uniforms.uOmega2.value = omega2;
   }
 
   controls.update();
