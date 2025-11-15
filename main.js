@@ -465,9 +465,10 @@ let source2Auto = true;
 let source3Auto = true;
 
 // Hard-coded velocities (you can tweak these)
-const source1Velocity = new THREE.Vector3(1.6, 0.3, 1.0);
-const source2Velocity = new THREE.Vector3(-1.2, 0.4, -1.4);
-const source3Velocity = new THREE.Vector3(+1.2, 0.4, -1.4);
+const cRadius = 1.5;
+const source1Velocity = new THREE.Vector3(randIntRange(-cRadius,cRadius), 0.3, randIntRange(-cRadius,cRadius));
+const source2Velocity = new THREE.Vector3(randIntRange(-cRadius,cRadius), 0.4, randIntRange(-cRadius,cRadius));
+const source3Velocity = new THREE.Vector3(randIntRange(-cRadius,cRadius), 0.4, randIntRange(-cRadius,cRadius));
 
 function updateSource1FromSliders() {
   const sx = Number(source1XSlider.value);
@@ -480,6 +481,10 @@ function updateSource1FromSliders() {
     mapSliderToBounds(sz, boundsMin.z, boundsMax.z)
   );
   source1Mesh.position.copy(source1Pos);
+}
+
+function randIntRange(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function updateSource2FromSliders() {
@@ -559,15 +564,15 @@ if (GLTFLoader) {
       fieldPosZSlider.value = "0";
 
       // --- 2) Snap both sources to model center ---
-      source1XSlider.value = "-15";
+      source1XSlider.value = "0";
       source1YSlider.value = "0";
       source1ZSlider.value = "0";
       source2XSlider.value = "0";
       source2YSlider.value = "0";
-      source2ZSlider.value = "-30";
-      source3XSlider.value = "-20";
+      source2ZSlider.value = "0";
+      source3XSlider.value = "0";
       source3YSlider.value = "0";
-      source3ZSlider.value = "+30";
+      source3ZSlider.value = "0";
 
       // Update source positions using new bounds & slider values
       updateSource1FromSliders();
@@ -589,6 +594,12 @@ if (GLTFLoader) {
       fieldSizeXSlider.value = String(size.x) / 1;
       fieldSizeYSlider.value = String(size.y) / 20;
       fieldSizeZSlider.value = String(size.z) / 1;
+
+      //Set Camera
+      const cx = mapSliderToBounds(0, boundsMin.x, boundsMax.x);
+      const cz = mapSliderToBounds(0, boundsMin.z, boundsMax.z);
+      camera.position.set(cx, 50, cz); //200, 400, 200
+      controls.target.set(cx, 150, cz);
 
       // Update field size from sliders
       updateFieldSizeFromSliders();
